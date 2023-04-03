@@ -5,6 +5,7 @@ import sys
 
 import gradio as gr
 
+from modules import config
 from modules.config import *
 from modules.utils import *
 from modules.presets import *
@@ -19,6 +20,7 @@ with open("assets/custom.css", "r", encoding="utf-8") as f:
     customCSS = f.read()
 
 with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
+    user_name = gr.State("")
     history = gr.State([])
     token_count = gr.State([])
     promptTemplates = gr.State(load_template(get_template_names(plain=True)[0], mode=2))
@@ -28,8 +30,19 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
     topic = gr.State("未命名对话历史记录")
 
     with gr.Row():
-        gr.HTML(title)
+        with gr.Column():
+            gr.HTML(title)
+            user_info = gr.Markdown(value="", elem_id="user_info")
         status_display = gr.Markdown(get_geoip(), elem_id="status_display")
+
+        # https://github.com/gradio-app/gradio/pull/3296
+        def create_greeting(request: gr.Request):
+            if hasattr(request, "username") and request.username: # is not None or is not ""
+                logging.info(f"Get User Name: {request.username}")
+                return gr.Markdown.update(value=f"User: {request.username}"), request.username
+            else:
+                return gr.Markdown.update(value=f"User: default", visible=False), ""
+        demo.load(create_greeting, inputs=None, outputs=[user_info, user_name])
 
     with gr.Row().style(equal_height=True):
         with gr.Column(scale=5):
@@ -38,6 +51,7 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
             with gr.Row():
                 with gr.Column(scale=12):
                     user_input = gr.Textbox(
+                        elem_id="user_input_tb",
                         show_label=False, placeholder="在这里输入"
                     ).style(container=False)
                 with gr.Column(min_width=70, scale=1):
@@ -63,7 +77,10 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
                         visible=not HIDE_MY_KEY,
                         label="API-Key",
                     )
-                    usageTxt = gr.Markdown("**发送消息** 或 **提交key** 以显示额度", elem_id="usage_display")
+                    if multi_api_key:
+                        usageTxt = gr.Markdown("多账号模式已开启，无需输入key，可直接开始对话", elem_id="usage_display")
+                    else:
+                        usageTxt = gr.Markdown("**发送消息** 或 **提交key** 以显示额度", elem_id="usage_display")
                     model_select_dropdown = gr.Dropdown(
                         label="选择模型", choices=MODELS, multiselect=False, value=MODELS[0]
                     )
@@ -168,11 +185,12 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
                         )
 
                     with gr.Accordion("网络设置", open=False):
+                        # 优先展示自定义的api_host
                         apihostTxt = gr.Textbox(
                             show_label=True,
                             placeholder=f"在这里输入API-Host...",
                             label="API-Host",
-                            value="api.openai.com",
+                            value=config.api_host or shared.API_HOST,
                             lines=1,
                         )
                         changeAPIURLBtn = gr.Button("🔄 切换API地址")
@@ -323,27 +341,27 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
     # S&L
     saveHistoryBtn.click(
         save_chat_history,
-        [saveFileName, systemPromptTxt, history, chatbot],
+        [saveFileName, systemPromptTxt, history, chatbot, user_name],
         downloadFile,
         show_progress=True,
     )
-    saveHistoryBtn.click(get_history_names, None, [historyFileSelectDropdown])
+    saveHistoryBtn.click(get_history_names, [gr.State(False), user_name], [historyFileSelectDropdown])
     exportMarkdownBtn.click(
         export_markdown,
-        [saveFileName, systemPromptTxt, history, chatbot],
+        [saveFileName, systemPromptTxt, history, chatbot, user_name],
         downloadFile,
         show_progress=True,
     )
-    historyRefreshBtn.click(get_history_names, None, [historyFileSelectDropdown])
+    historyRefreshBtn.click(get_history_names, [gr.State(False), user_name], [historyFileSelectDropdown])
     historyFileSelectDropdown.change(
         load_chat_history,
-        [historyFileSelectDropdown, systemPromptTxt, history, chatbot],
+        [historyFileSelectDropdown, systemPromptTxt, history, chatbot, user_name],
         [saveFileName, systemPromptTxt, history, chatbot],
         show_progress=True,
     )
     downloadFile.change(
         load_chat_history,
-        [downloadFile, systemPromptTxt, history, chatbot],
+        [downloadFile, systemPromptTxt, history, chatbot, user_name],
         [saveFileName, systemPromptTxt, history, chatbot],
     )
 

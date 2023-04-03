@@ -18,7 +18,7 @@ import aiohttp
 from modules.presets import *
 from modules.llama_func import *
 from modules.utils import *
-import modules.shared as shared
+from . import shared
 from modules.config import retrieve_proxy
 
 # logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s")
@@ -35,6 +35,7 @@ initial_prompt = "You are a helpful assistant."
 HISTORY_DIR = "history"
 TEMPLATES_DIR = "templates"
 
+@shared.state.switching_api_key # 在不开启多账号模式的时候，这个装饰器不会起作用
 def get_response(
     openai_api_key, system_prompt, history, temperature, top_p, stream, selected_model
 ):
@@ -268,7 +269,7 @@ def predict(
     reply_language="中文",
     should_check_token_count=True,
 ):  # repetition_penalty, top_k
-    from llama_index.indices.query.vector_store import GPTVectorStoreIndexQuery
+    from llama_index.indices.vector_store.base_query import GPTVectorStoreIndexQuery
     from llama_index.indices.query.schema import QueryBundle
     from langchain.llms import OpenAIChat
 
@@ -330,7 +331,7 @@ def predict(
     else:
         display_reference = ""
 
-    if len(openai_api_key) != 51:
+    if len(openai_api_key) != 51 and not shared.state.multi_api_key:
         status_text = standard_error_msg + no_apikey_msg
         logging.info(status_text)
         chatbot.append((inputs, ""))

@@ -18,10 +18,22 @@ footer {
     opacity: 0.85;
 }
 
+/* user_info */
+#user_info {
+    white-space: nowrap;
+    margin-top: -1.3em !important;
+    padding-left: 112px !important;
+}
+#user_info p {
+    font-size: .85em;
+    font-family: monospace;
+    color: var(--body-text-color-subdued);
+}
+
 /* status_display */
 #status_display {
     display: flex;
-    min-height: 2.5em;
+    min-height: 2em;
     align-items: flex-end;
     justify-content: flex-end;
 }

@@ -5,6 +5,9 @@ import logging
 import sys
 import json
 
+from . import shared
+
+
 __all__ = [
     "my_api_key",
     "authflag",
@@ -13,7 +16,8 @@ __all__ = [
     "retrieve_proxy",
     "log_level",
     "advance_docs",
-    "update_doc_config"
+    "update_doc_config",
+    "multi_api_key",
 ]
 
 # 添加一个统一的config文件，避免文件过多造成的疑惑（优先级最低）
@@ -31,9 +35,25 @@ if os.environ.get("dockerrun") == "yes":
 
 ## 处理 api-key 以及 允许的用户列表
 my_api_key = config.get("openai_api_key", "") # 在这里输入你的 API 密钥
-authflag = "users" in config
-auth_list = config.get("users", []) # 实际上是使用者的列表
 my_api_key = os.environ.get("my_api_key", my_api_key)
+
+## 多账户机制
+multi_api_key = config.get("multi_api_key", False) # 是否开启多账户机制
+if multi_api_key:
+    api_key_list = config.get("api_key_list", [])
+    if len(api_key_list) == 0:
+        logging.error("多账号模式已开启，但api_key_list为空，请检查config.json")
+        sys.exit(1)
+    shared.state.set_api_key_queue(api_key_list)
+
+auth_list = config.get("users", []) # 实际上是使用者的列表
+authflag = len(auth_list) > 0  # 是否开启认证的状态值，改为判断auth_list长度
+
+# 处理自定义的api_host，优先读环境变量的配置，如果存在则自动装配
+api_host = os.environ.get("api_host", config.get("api_host", ""))
+if api_host:
+    shared.state.set_api_host(api_host)
+
 if dockerflag:
     if my_api_key == "empty":
         logging.error("Please give a api key!")
