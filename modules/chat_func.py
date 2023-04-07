@@ -165,9 +165,7 @@ def stream_predict(
             # decode each line as response data is in bytes
             if chunklength > 6 and "delta" in chunk["choices"][0]:
                 finish_reason = chunk["choices"][0]["finish_reason"]
-                status_text = construct_token_message(
-                    sum(all_token_counts), stream=True
-                )
+                status_text = construct_token_message(all_token_counts)
                 if finish_reason == "stop":
                     yield get_return_value()
                     break
@@ -273,7 +271,7 @@ def predict(
     from llama_index.indices.query.schema import QueryBundle
     from langchain.llms import OpenAIChat
 
-    
+
     logging.info("输入为：" + colorama.Fore.BLUE + f"{inputs}" + colorama.Style.RESET_ALL)
     if should_check_token_count:
         yield chatbot+[(inputs, "")], history, "开始生成回答……", all_token_counts
@@ -331,7 +329,7 @@ def predict(
     else:
         display_reference = ""
 
-    if len(openai_api_key) != 51 and not shared.state.multi_api_key:
+    if len(openai_api_key) == 0 and not shared.state.multi_api_key:
         status_text = standard_error_msg + no_apikey_msg
         logging.info(status_text)
         chatbot.append((inputs, ""))
@@ -406,23 +404,15 @@ def predict(
         max_token = MODEL_SOFT_TOKEN_LIMIT[selected_model]["all"]
 
     if sum(all_token_counts) > max_token and should_check_token_count:
-        status_text = f"精简token中{all_token_counts}/{max_token}"
+        print(all_token_counts)
+        count = 0
+        while sum(all_token_counts) > max_token - 500 and sum(all_token_counts) > 0:
+            count += 1
+            del all_token_counts[0]
+            del history[:2]
         logging.info(status_text)
+        status_text = f"为了防止token超限，模型忘记了早期的 {count} 轮对话"
         yield chatbot, history, status_text, all_token_counts
-        iter = reduce_token_size(
-            openai_api_key,
-            system_prompt,
-            history,
-            chatbot,
-            all_token_counts,
-            top_p,
-            temperature,
-            max_token//2,
-            selected_model=selected_model,
-        )
-        for chatbot, history, status_text, all_token_counts in iter:
-            status_text = f"Token 达到上限，已自动降低Token计数至 {status_text}"
-            yield chatbot, history, status_text, all_token_counts
 
 
 def retry(
@@ -501,7 +491,7 @@ def reduce_token_size(
         token_count = previous_token_count[-num_chat:] if num_chat > 0 else []
         msg = f"保留了最近{num_chat}轮对话"
         yield chatbot, history, msg + "，" + construct_token_message(
-            sum(token_count) if len(token_count) > 0 else 0,
+            token_count if len(token_count) > 0 else [0],
         ), token_count
     logging.info(msg)
     logging.info("减少token数量完毕")

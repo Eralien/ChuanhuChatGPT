@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os
 import logging
 import sys
-import json
+import commentjson as json
 
 from . import shared
 
@@ -27,6 +27,30 @@ if os.path.exists("config.json"):
         config = json.load(f)
 else:
     config = {}
+
+if os.path.exists("api_key.txt"):
+    logging.info("检测到api_key.txt文件，正在进行迁移...")
+    with open("api_key.txt", "r") as f:
+        config["openai_api_key"] = f.read().strip()
+    os.rename("api_key.txt", "api_key(deprecated).txt")
+    with open("config.json", "w", encoding='utf-8') as f:
+        json.dump(config, f, indent=4)
+
+if os.path.exists("auth.json"):
+    logging.info("检测到auth.json文件，正在进行迁移...")
+    auth_list = []
+    with open("auth.json", "r", encoding='utf-8') as f:
+            auth = json.load(f)
+            for _ in auth:
+                if auth[_]["username"] and auth[_]["password"]:
+                    auth_list.append((auth[_]["username"], auth[_]["password"]))
+                else:
+                    logging.error("请检查auth.json文件中的用户名和密码！")
+                    sys.exit(1)
+    config["users"] = auth_list
+    os.rename("auth.json", "auth(deprecated).json")
+    with open("config.json", "w", encoding='utf-8') as f:
+        json.dump(config, f, indent=4)
 
 ## 处理docker if we are running in Docker
 dockerflag = config.get("dockerflag", False)
@@ -64,24 +88,6 @@ if dockerflag:
     if not (isinstance(username, type(None)) or isinstance(password, type(None))):
         auth_list.append((os.environ.get("USERNAME"), os.environ.get("PASSWORD")))
         authflag = True
-else:
-    if (
-        not my_api_key
-        and os.path.exists("api_key.txt")
-        and os.path.getsize("api_key.txt")
-    ):
-        with open("api_key.txt", "r") as f:
-            my_api_key = f.read().strip()
-    if os.path.exists("auth.json"):
-        authflag = True
-        with open("auth.json", "r", encoding='utf-8') as f:
-            auth = json.load(f)
-            for _ in auth:
-                if auth[_]["username"] and auth[_]["password"]:
-                    auth_list.append((auth[_]["username"], auth[_]["password"]))
-                else:
-                    logging.error("请检查auth.json文件中的用户名和密码！")
-                    sys.exit(1)
 
 @contextmanager
 def retrieve_openai_api(api_key = None):
@@ -127,7 +133,7 @@ def retrieve_proxy(proxy=None):
         os.environ["HTTP_PROXY"] = http_proxy
         os.environ["HTTPS_PROXY"] = https_proxy
         yield http_proxy, https_proxy # return new proxy
-        
+
         # return old proxy
         os.environ["HTTP_PROXY"], os.environ["HTTPS_PROXY"] = old_var
 
@@ -137,7 +143,6 @@ advance_docs = defaultdict(lambda: defaultdict(dict))
 advance_docs.update(config.get("advance_docs", {}))
 def update_doc_config(two_column_pdf):
     global advance_docs
-    if two_column_pdf:
-        advance_docs["pdf"]["two_column"] = True
-    
+    advance_docs["pdf"]["two_column"] = two_column_pdf
+
     logging.info(f"更新后的文件参数为：{advance_docs}")

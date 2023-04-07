@@ -12,3 +12,5 @@ langchain
 markdown
 PyPDF2
 pdfplumber
+pandas
+commentjson

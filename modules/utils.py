@@ -21,6 +21,7 @@ from markdown import markdown
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
+import pandas as pd
 
 from modules.presets import *
 from . import shared
@@ -152,8 +153,11 @@ def construct_assistant(text):
     return construct_text("assistant", text)
 
 
-def construct_token_message(token, stream=False):
-    return f"Token 计数: {token}"
+def construct_token_message(tokens: List[int]):
+    token_sum = 0
+    for i in range(len(tokens)):
+        token_sum += sum(tokens[: i + 1])
+    return f"Token 计数: {sum(tokens)}，本次对话累计消耗了 {token_sum} tokens"
 
 
 def delete_first_conversation(history, previous_token_count):
@@ -163,7 +167,7 @@ def delete_first_conversation(history, previous_token_count):
     return (
         history,
         previous_token_count,
-        construct_token_message(sum(previous_token_count)),
+        construct_token_message(previous_token_count),
     )
 
 
@@ -186,7 +190,7 @@ def delete_last_conversation(chatbot, history, previous_token_count):
         chatbot,
         history,
         previous_token_count,
-        construct_token_message(sum(previous_token_count)),
+        construct_token_message(previous_token_count),
     )
 
 
@@ -301,7 +305,7 @@ def load_template(filename, mode=0):
     else:
         choices = sorted_by_pinyin([row[0] for row in lines])
         return {row[0]: row[1] for row in lines}, gr.Dropdown.update(
-            choices=choices, value=choices[0]
+            choices=choices
         )
 
 
@@ -320,7 +324,7 @@ def get_template_content(templates, selection, original_system_prompt):
 
 def reset_state():
     logging.info("重置状态")
-    return [], [], [], construct_token_message(0)
+    return [], [], [], construct_token_message([0])
 
 
 def reset_textbox():
@@ -498,3 +502,31 @@ def add_details(lst):
             f"<details><summary>{brief}...</summary><p>{txt}</p></details>"
         )
     return nodes
+
+
+def sheet_to_string(sheet, sheet_name = None):
+    result = []
+    for index, row in sheet.iterrows():
+        row_string = ""
+        for column in sheet.columns:
+            row_string += f"{column}: {row[column]}, "
+        row_string = row_string.rstrip(", ")
+        row_string += "."
+        result.append(row_string)
+    return result
+
+def excel_to_string(file_path):
+    # 读取Excel文件中的所有工作表
+    excel_file = pd.read_excel(file_path, engine='openpyxl', sheet_name=None)
+
+    # 初始化结果字符串
+    result = []
+
+    # 遍历每一个工作表
+    for sheet_name, sheet_data in excel_file.items():
+
+        # 处理当前工作表并添加到结果字符串
+        result += sheet_to_string(sheet_data, sheet_name=sheet_name)
+
+
+    return result

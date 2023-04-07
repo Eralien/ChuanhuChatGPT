@@ -30,10 +30,10 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
     topic = gr.State("未命名对话历史记录")
 
     with gr.Row():
-        with gr.Column():
-            gr.HTML(title)
-            user_info = gr.Markdown(value="", elem_id="user_info")
+        gr.HTML(title, elem_id="app_title")
         status_display = gr.Markdown(get_geoip(), elem_id="status_display")
+    with gr.Row(elem_id="float_display"):
+        user_info = gr.Markdown(value="getting user info...", elem_id="user_info")
 
         # https://github.com/gradio-app/gradio/pull/3296
         def create_greeting(request: gr.Request):
@@ -49,14 +49,14 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
             with gr.Row():
                 chatbot = gr.Chatbot(elem_id="chuanhu_chatbot").style(height="100%")
             with gr.Row():
-                with gr.Column(scale=12):
+                with gr.Column(min_width=225, scale=12):
                     user_input = gr.Textbox(
                         elem_id="user_input_tb",
                         show_label=False, placeholder="在这里输入"
                     ).style(container=False)
-                with gr.Column(min_width=70, scale=1):
-                    submitBtn = gr.Button("发送", variant="primary")
-                    cancelBtn = gr.Button("取消", variant="secondary", visible=False)
+                with gr.Column(min_width=42, scale=1):
+                    submitBtn = gr.Button(value="", variant="primary", elem_id="submit_btn")
+                    cancelBtn = gr.Button(value="", variant="secondary", visible=False, elem_id="cancel_btn")
             with gr.Row():
                 emptyBtn = gr.Button(
                     "🧹 新的对话",
@@ -98,7 +98,6 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
                     two_column = gr.Checkbox(label="双栏pdf", value=advance_docs["pdf"].get("two_column", False))
                     # TODO: 公式ocr
                     # formula_ocr = gr.Checkbox(label="识别公式", value=advance_docs["pdf"].get("formula_ocr", False))
-                    updateDocConfigBtn = gr.Button("更新解析文件参数")
 
                 with gr.Tab(label="Prompt"):
                     systemPromptTxt = gr.Textbox(
@@ -128,9 +127,6 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
                                             get_template_names(plain=True)[0], mode=1
                                         ),
                                         multiselect=False,
-                                        value=load_template(
-                                            get_template_names(plain=True)[0], mode=1
-                                        )[0],
                                     ).style(container=False)
 
                 with gr.Tab(label="保存/加载"):
@@ -317,7 +313,7 @@ with gr.Blocks(css=customCSS, theme=small_and_beautiful_theme) as demo:
     )
     reduceTokenBtn.click(**get_usage_args)
 
-    updateDocConfigBtn.click(update_doc_config, [two_column], None)
+    two_column.change(update_doc_config, [two_column], None)
 
     # ChatGPT
     keyTxt.change(submit_key, keyTxt, [user_api_key, status_display]).then(**get_usage_args)
