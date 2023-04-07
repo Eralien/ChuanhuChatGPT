@@ -1,7 +1,8 @@
 FROM python:3.9 as builder
 RUN apt-get update && apt-get install -y build-essential
 COPY requirements.txt .
-RUN pip install --user -r requirements.txt
+COPY llama_index-0.5.9.tar.gz .
+RUN python3 -m pip install --user llama_index-0.5.9.tar.gz && python3 -m pip install --user -r requirements.txt -i https://mirrors.bfsu.edu.cn/pypi/web/simple
 
 FROM python:3.9
 MAINTAINER iskoldt
