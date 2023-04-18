@@ -6,6 +6,7 @@ import sys
 import commentjson as json
 
 from . import shared
+from . import presets
 
 
 __all__ = [
@@ -18,6 +19,9 @@ __all__ = [
     "advance_docs",
     "update_doc_config",
     "multi_api_key",
+    "server_name",
+    "server_port",
+    "share",
 ]
 
 # 添加一个统一的config文件，避免文件过多造成的疑惑（优先级最低）
@@ -27,6 +31,8 @@ if os.path.exists("config.json"):
         config = json.load(f)
 else:
     config = {}
+
+language = config.get("language", "auto")
 
 if os.path.exists("api_key.txt"):
     logging.info("检测到api_key.txt文件，正在进行迁移...")
@@ -58,8 +64,11 @@ if os.environ.get("dockerrun") == "yes":
     dockerflag = True
 
 ## 处理 api-key 以及 允许的用户列表
-my_api_key = config.get("openai_api_key", "") # 在这里输入你的 API 密钥
+my_api_key = config.get("openai_api_key", "")
 my_api_key = os.environ.get("my_api_key", my_api_key)
+
+xmbot_api_key = config.get("xmbot_api_key", "")
+os.environ["XMBOT_API_KEY"] = xmbot_api_key
 
 ## 多账户机制
 multi_api_key = config.get("multi_api_key", False) # 是否开启多账户机制
@@ -77,17 +86,6 @@ authflag = len(auth_list) > 0  # 是否开启认证的状态值，改为判断au
 api_host = os.environ.get("api_host", config.get("api_host", ""))
 if api_host:
     shared.state.set_api_host(api_host)
-
-if dockerflag:
-    if my_api_key == "empty":
-        logging.error("Please give a api key!")
-        sys.exit(1)
-    # auth
-    username = os.environ.get("USERNAME")
-    password = os.environ.get("PASSWORD")
-    if not (isinstance(username, type(None)) or isinstance(password, type(None))):
-        auth_list.append((os.environ.get("USERNAME"), os.environ.get("PASSWORD")))
-        authflag = True
 
 @contextmanager
 def retrieve_openai_api(api_key = None):
@@ -116,6 +114,8 @@ https_proxy = os.environ.get("HTTPS_PROXY", https_proxy)
 # 重置系统变量，在不需要设置的时候不设置环境变量，以免引起全局代理报错
 os.environ["HTTP_PROXY"] = ""
 os.environ["HTTPS_PROXY"] = ""
+
+local_embedding = config.get("local_embedding", False) # 是否使用本地embedding
 
 @contextmanager
 def retrieve_proxy(proxy=None):
@@ -146,3 +146,26 @@ def update_doc_config(two_column_pdf):
     advance_docs["pdf"]["two_column"] = two_column_pdf
 
     logging.info(f"更新后的文件参数为：{advance_docs}")
+
+## 处理gradio.launch参数
+server_name = config.get("server_name", None)
+server_port = config.get("server_port", None)
+if server_name is None:
+    if dockerflag:
+        server_name = "0.0.0.0"
+    else:
+        server_name = "127.0.0.1"
+if server_port is None:
+    if dockerflag:
+        server_port = 7860
+
+assert server_port is None or type(server_port) == int, "要求port设置为int类型"
+
+# 设置默认model
+default_model = config.get("default_model", "")
+try:
+    presets.DEFAULT_MODEL = presets.MODELS.index(default_model)
+except ValueError:
+    pass
+
+share = config.get("share", False)

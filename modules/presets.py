@@ -1,86 +1,112 @@
 # -*- coding:utf-8 -*-
-import gradio as gr
+import os
 from pathlib import Path
+import gradio as gr
+from .webui_locale import I18nAuto
+
+i18n = I18nAuto()  # internationalization
+
+CHATGLM_MODEL = None
+CHATGLM_TOKENIZER = None
+LLAMA_MODEL = None
+LLAMA_INFERENCER = None
 
 # ChatGPT 设置
-initial_prompt = "You are a helpful assistant."
+INITIAL_SYSTEM_PROMPT = "You are a helpful assistant."
 API_HOST = "api.openai.com"
 COMPLETION_URL = "https://api.openai.com/v1/chat/completions"
 BALANCE_API_URL="https://api.openai.com/dashboard/billing/credit_grants"
 USAGE_API_URL="https://api.openai.com/dashboard/billing/usage"
 HISTORY_DIR = Path("history")
+HISTORY_DIR = "history"
 TEMPLATES_DIR = "templates"
 
 # 错误信息
-standard_error_msg = "☹️发生了错误："  # 错误信息的标准前缀
-error_retrieve_prompt = "请检查网络连接，或者API-Key是否有效。"  # 获取对话时发生错误
-connection_timeout_prompt = "连接超时，无法获取对话。"  # 连接超时
-read_timeout_prompt = "读取超时，无法获取对话。"  # 读取超时
-proxy_error_prompt = "代理错误，无法获取对话。"  # 代理错误
-ssl_error_prompt = "SSL错误，无法获取对话。"  # SSL 错误
-no_apikey_msg = "API key长度不是51位，请检查是否输入正确。"  # API key 长度不足 51 位
-no_input_msg = "请输入对话内容。"  # 未输入对话内容
+STANDARD_ERROR_MSG = i18n("☹️发生了错误：")  # 错误信息的标准前缀
+GENERAL_ERROR_MSG = i18n("获取对话时发生错误，请查看后台日志")
+ERROR_RETRIEVE_MSG = i18n("请检查网络连接，或者API-Key是否有效。")
+CONNECTION_TIMEOUT_MSG = i18n("连接超时，无法获取对话。")  # 连接超时
+READ_TIMEOUT_MSG = i18n("读取超时，无法获取对话。")  # 读取超时
+PROXY_ERROR_MSG = i18n("代理错误，无法获取对话。")  # 代理错误
+SSL_ERROR_PROMPT = i18n("SSL错误，无法获取对话。")  # SSL 错误
+NO_APIKEY_MSG = i18n("API key为空，请检查是否输入正确。")  # API key 长度不足 51 位
+NO_INPUT_MSG = i18n("请输入对话内容。")  # 未输入对话内容
+BILLING_NOT_APPLICABLE_MSG = i18n("账单信息不适用") # 本地运行的模型返回的账单信息
 
-timeout_streaming = 10  # 流式对话时的超时时间
-timeout_all = 200  # 非流式对话时的超时时间
-enable_streaming_option = True  # 是否启用选择选择是否实时显示回答的勾选框
+TIMEOUT_STREAMING = 60  # 流式对话时的超时时间
+TIMEOUT_ALL = 200  # 非流式对话时的超时时间
+ENABLE_STREAMING_OPTION = True  # 是否启用选择选择是否实时显示回答的勾选框
 HIDE_MY_KEY = False  # 如果你想在UI中隐藏你的 API 密钥，将此值设置为 True
 CONCURRENT_COUNT = 100 # 允许同时使用的用户数量
 
 SIM_K = 5
 INDEX_QUERY_TEMPRATURE = 1.0
 
-title = """<h1 align="left">川虎ChatGPT 🚀</h1>"""
-description = """\
-<div align="center" style="margin:16px 0">
+CHUANHU_TITLE = i18n("川虎Chat 🚀")
 
-由Bilibili [土川虎虎虎](https://space.bilibili.com/29125536) 和 [明昭MZhao](https://space.bilibili.com/24807452)开发
+CHUANHU_DESCRIPTION = i18n("由Bilibili [土川虎虎虎](https://space.bilibili.com/29125536) 和 [明昭MZhao](https://space.bilibili.com/24807452)开发<br />访问川虎Chat的 [GitHub项目](https://github.com/GaiZhenbiao/ChuanhuChatGPT) 下载最新版脚本")
 
-访问川虎ChatGPT的 [GitHub项目](https://github.com/GaiZhenbiao/ChuanhuChatGPT) 下载最新版脚本
+FOOTER = """<div class="versions">{versions}</div>"""
 
-此App使用 `gpt-3.5-turbo` 大语言模型
+APPEARANCE_SWITCHER = """
+<div style="display: flex; justify-content: space-between;">
+<span style="margin-top: 4px !important;">"""+ i18n("切换亮暗色主题")  + """</span>
+<span><label class="apSwitch" for="checkbox">
+    <input type="checkbox" id="checkbox">
+    <div class="apSlider"></div>
+</label></span>
 </div>
 """
 
-footer = """<div class="versions">{versions}</div>"""
+SUMMARIZE_PROMPT = "你是谁？我们刚才聊了什么？"  # 总结对话时的 prompt
 
-summarize_prompt = "你是谁？我们刚才聊了什么？"  # 总结对话时的 prompt
-
-MODELS = [
+ONLINE_MODELS = [
     "gpt-3.5-turbo",
     "gpt-3.5-turbo-0301",
     "gpt-4",
     "gpt-4-0314",
     "gpt-4-32k",
     "gpt-4-32k-0314",
-]  # 可选的模型
+    "xmbot",
+]
 
-MODEL_SOFT_TOKEN_LIMIT = {
-    "gpt-3.5-turbo": {
-        "streaming": 3500,
-        "all": 3500
-    },
-    "gpt-3.5-turbo-0301": {
-        "streaming": 3500,
-        "all": 3500
-    },
-    "gpt-4": {
-        "streaming": 7500,
-        "all": 7500
-    },
-    "gpt-4-0314": {
-        "streaming": 7500,
-        "all": 7500
-    },
-    "gpt-4-32k": {
-        "streaming": 31000,
-        "all": 31000
-    },
-    "gpt-4-32k-0314": {
-        "streaming": 31000,
-        "all": 31000
-    }
+LOCAL_MODELS = [
+    "chatglm-6b",
+    "chatglm-6b-int4",
+    "chatglm-6b-int4-qe",
+    "llama-7b-hf",
+    "llama-13b-hf",
+    "llama-30b-hf",
+    "llama-65b-hf"
+]
+
+if os.environ.get('HIDE_LOCAL_MODELS', 'false') == 'true':
+    MODELS = ONLINE_MODELS
+else:
+    MODELS = ONLINE_MODELS + LOCAL_MODELS
+
+DEFAULT_MODEL = 0
+
+os.makedirs("models", exist_ok=True)
+os.makedirs("lora", exist_ok=True)
+os.makedirs("history", exist_ok=True)
+for dir_name in os.listdir("models"):
+    if os.path.isdir(os.path.join("models", dir_name)):
+        if dir_name not in MODELS:
+            MODELS.append(dir_name)
+
+MODEL_TOKEN_LIMIT = {
+    "gpt-3.5-turbo": 4096,
+    "gpt-3.5-turbo-0301": 4096,
+    "gpt-4": 8192,
+    "gpt-4-0314": 8192,
+    "gpt-4-32k": 32768,
+    "gpt-4-32k-0314": 32768
 }
+
+TOKEN_OFFSET = 1000 # 模型的token上限减去这个值，得到软上限。到达软上限之后，自动尝试减少token占用。
+DEFAULT_TOKEN_LIMIT = 3000 # 默认的token上限
+REDUCE_TOKEN_FACTOR = 0.5 # 与模型token上限想乘，得到目标token数。减少token占用时，将token占用减少到目标token数以下。
 
 REPLY_LANGUAGES = [
     "简体中文",
