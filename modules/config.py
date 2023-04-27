@@ -18,6 +18,7 @@ __all__ = [
     "log_level",
     "advance_docs",
     "update_doc_config",
+    "render_latex",
     "multi_api_key",
     "server_name",
     "server_port",
@@ -32,7 +33,8 @@ if os.path.exists("config.json"):
 else:
     config = {}
 
-language = config.get("language", "auto")
+lang_config = config.get("language", "auto")
+language = os.environ.get("LANGUAGE", lang_config)
 
 if os.path.exists("api_key.txt"):
     logging.info("检测到api_key.txt文件，正在进行迁移...")
@@ -65,10 +67,17 @@ if os.environ.get("dockerrun") == "yes":
 
 ## 处理 api-key 以及 允许的用户列表
 my_api_key = config.get("openai_api_key", "")
-my_api_key = os.environ.get("my_api_key", my_api_key)
+my_api_key = os.environ.get("OPENAI_API_KEY", my_api_key)
 
-xmbot_api_key = config.get("xmbot_api_key", "")
-os.environ["XMBOT_API_KEY"] = xmbot_api_key
+xmchat_api_key = config.get("xmchat_api_key", "")
+os.environ["XMCHAT_API_KEY"] = xmchat_api_key
+
+render_latex = config.get("render_latex", False)
+
+if render_latex:
+    os.environ["RENDER_LATEX"] = "yes"
+else:
+    os.environ["RENDER_LATEX"] = "no"
 
 ## 多账户机制
 multi_api_key = config.get("multi_api_key", False) # 是否开启多账户机制

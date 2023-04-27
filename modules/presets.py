@@ -67,17 +67,19 @@ ONLINE_MODELS = [
     "gpt-4-0314",
     "gpt-4-32k",
     "gpt-4-32k-0314",
-    "xmbot",
+    "xmchat",
 ]
 
 LOCAL_MODELS = [
     "chatglm-6b",
     "chatglm-6b-int4",
     "chatglm-6b-int4-qe",
+    "StableLM",
+    "MOSS",
     "llama-7b-hf",
     "llama-13b-hf",
     "llama-30b-hf",
-    "llama-65b-hf"
+    "llama-65b-hf",
 ]
 
 if os.environ.get('HIDE_LOCAL_MODELS', 'false') == 'true':

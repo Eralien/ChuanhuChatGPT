@@ -113,6 +113,12 @@ def set_single_turn(current_model, *args):
 def handle_file_upload(current_model, *args):
     return current_model.handle_file_upload(*args)
 
+def like(current_model, *args):
+    return current_model.like(*args)
+
+def dislike(current_model, *args):
+    return current_model.dislike(*args)
+
 
 def count_token(message):
     encoding = tiktoken.get_encoding("cl100k_base")
@@ -177,10 +183,7 @@ def convert_mdtext(md_text):
     for non_code, code in zip(non_code_parts, code_blocks + [""]):
         if non_code.strip():
             non_code = normalize_markdown(non_code)
-            if inline_code_pattern.search(non_code):
-                result.append(markdown(non_code, extensions=["tables"]))
-            else:
-                result.append(mdtex2html.convert(non_code, extensions=["tables"]))
+            result.append(markdown(non_code, extensions=["tables"]))
         if code.strip():
             # _, code = detect_language(code)  # 暂时去除代码高亮功能，因为在大段代码的情况下会出现问题
             # code = code.replace("\n\n", "\n") # 暂时去除代码中的空行，因为在大段代码的情况下会出现问题
@@ -531,3 +534,12 @@ def get_last_day_of_month(any_day):
 def get_model_source(model_name, alternative_source):
     if model_name == "gpt2-medium":
         return "https://huggingface.co/gpt2-medium"
+
+def refresh_ui_elements_on_load(current_model, selected_model_name):
+    return toggle_like_btn_visibility(selected_model_name)
+
+def toggle_like_btn_visibility(selected_model_name):
+    if selected_model_name == "xmchat":
+        return gr.update(visible=True)
+    else:
+        return gr.update(visible=False)
