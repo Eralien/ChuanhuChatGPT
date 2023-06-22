@@ -1,10 +1,13 @@
 :root {
-    --chatbot-color-light: #F3F3F3;
-    --chatbot-color-dark: #121111;
+    --chatbot-color-light: #000000;
+    --chatbot-color-dark: #FFFFFF;
+    --chatbot-background-color-light: #F3F3F3;
+    --chatbot-background-color-dark: #121111;
+    --message-user-background-color-light: #95EC69;
+    --message-user-background-color-dark: #26B561;
+    --message-bot-background-color-light: #FFFFFF;
+    --message-bot-background-color-dark: #2C2C2C;
 }
-
-.message p { margin-bottom: 0.6rem !important;}
-.message p:last-child { margin-bottom: 0 !important; }
 
 #app_title {
     font-weight: var(--prose-header-text-weight);
@@ -16,13 +19,15 @@
 }
 #description {
     text-align: center;
-    margin: 16px 0;
+    margin: 32px 0 4px 0;
 }
 
-/* 覆盖gradio的页脚信息QAQ */
-/* footer {
-    display: none !important;
-} */
+/* gradio的页脚信息 */
+footer {
+    /* display: none !important; */
+    margin-top: .2em !important;
+    font-size: 85%;
+}
 #footer {
     text-align: center;
 }
@@ -31,7 +36,7 @@
 }
 #footer .versions{
     font-size: 85%;
-    opacity: 0.85;
+    opacity: 0.60;
 }
 
 #float_display {
@@ -73,7 +78,8 @@
 }
 #status_display p {
     font-size: .85em;
-    font-family: monospace;
+    font-family: ui-monospace, "SF Mono", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", "Microsoft Yahei UI", "Microsoft Yahei", monospace;
+    /* Windows下中文的monospace会fallback为新宋体，实在太丑，这里折中使用微软雅黑 */
     color: var(--body-text-color-subdued);
 }
 
@@ -105,7 +111,7 @@
 }
 .progress-bar {
     background-color: var(--input-background-fill);;
-    margin: 0 1em;
+    margin: .5em 0 !important;
     height: 20px;
     border-radius: 10px;
     overflow: hidden;
@@ -138,7 +144,7 @@
     display: none !important;
 }
 .apSlider {
-    background-color: var(--block-label-background-fill);
+    background-color: var(--neutral-200);
     bottom: 0;
     cursor: pointer;
     left: 0;
@@ -157,11 +163,45 @@
     content: "🌞";
 }
 input:checked + .apSlider {
-    background-color: var(--block-label-background-fill);
+    background-color: var(--primary-600);
 }
 input:checked + .apSlider::before {
     transform: translateX(23px);
     content:"🌚";
+}
+
+/* Override Slider Styles (for webkit browsers like Safari and Chrome)
+ * 好希望这份提案能早日实现 https://github.com/w3c/csswg-drafts/issues/4410
+ * 进度滑块在各个平台还是太不统一了
+ */
+input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--input-background-fill);
+    border-radius: 5px;
+    background-image: linear-gradient(var(--primary-500),var(--primary-500));
+    background-size: 0% 100%;
+    background-repeat: no-repeat;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    border: solid 0.5px #ddd;
+    background-color: white;
+    cursor: ew-resize;
+    box-shadow: var(--input-shadow);
+    transition: background-color .1s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--neutral-50);
+}
+input[type=range]::-webkit-slider-runnable-track {
+    -webkit-appearance: none;
+    box-shadow: none;
+    border: none;
+    background: transparent;
 }
 
 #submit_btn, #cancel_btn {
@@ -182,25 +222,25 @@ ol:not(.options), ul:not(.options) {
 
 /* 亮色（默认） */
 #chuanhu_chatbot {
-    background-color: var(--chatbot-color-light) !important;
-    color: #000000 !important;
+    background-color: var(--chatbot-background-color-light) !important;
+    color: var(--chatbot-color-light) !important;
 }
 [data-testid = "bot"] {
-    background-color: #FFFFFF !important;
+    background-color: var(--message-bot-background-color-light) !important;
 }
 [data-testid = "user"] {
-    background-color: #95EC69 !important;
+    background-color: var(--message-user-background-color-light) !important;
 }
 /* 暗色 */
 .dark #chuanhu_chatbot {
-    background-color: var(--chatbot-color-dark) !important;
-    color: #FFFFFF !important;
+    background-color: var(--chatbot-background-color-dark) !important;
+    color: var(--chatbot-color-dark) !important;
 }
 .dark [data-testid = "bot"] {
-    background-color: #2C2C2C !important;
+    background-color: var(--message-bot-background-color-dark) !important;
 }
 .dark [data-testid = "user"] {
-    background-color: #26B561 !important;
+    background-color: var(--message-user-background-color-dark) !important;
 }
 
 /* 屏幕宽度大于等于500px的设备 */
@@ -222,14 +262,17 @@ ol:not(.options), ul:not(.options) {
         max-height: calc(100vh - 140px - var(--line-sm)*1rem - 2*var(--block-label-margin) );
     }
     [data-testid = "bot"] {
-        max-width: 98% !important;
+        max-width: 95% !important;
     }
     #app_title h1{
         letter-spacing: -1px; font-size: 22px;
     }
 }
+#chuanhu_chatbot .wrap {
+    overflow-x: hidden;
+}
 /* 对话气泡 */
-[class *= "message"] {
+.message {
     border-radius: var(--radius-xl) !important;
     border: none;
     padding: var(--spacing-xl) !important;
@@ -246,6 +289,74 @@ ol:not(.options), ul:not(.options) {
     max-width: 85%;
     width: auto !important;
     border-bottom-right-radius: 0 !important;
+}
+
+.message.user p {
+    white-space: pre-wrap;
+}
+.message .user-message {
+    display: block;
+    padding: 0 !important;
+    white-space: pre-wrap;
+}
+
+.message .md-message p {
+    margin-top: 0.6em !important;
+    margin-bottom: 0.6em !important;
+}
+.message .md-message p:first-child { margin-top: 0 !important; }
+.message .md-message p:last-of-type { margin-bottom: 0 !important; }
+
+.message .md-message {
+    display: block;
+    padding: 0 !important;
+}
+.message .raw-message p {
+    margin:0 !important;
+}
+.message .raw-message {
+    display: block;
+    padding: 0 !important;
+    white-space: pre-wrap;
+}
+.raw-message.hideM, .md-message.hideM {
+    display: none;
+}
+
+/* custom buttons */
+.chuanhu-btn {
+    border-radius: 5px;
+    /* background-color: #E6E6E6 !important; */
+    color: rgba(120, 120, 120, 0.64) !important;
+    padding: 4px !important;
+    position: absolute;
+    right: -22px;
+    cursor: pointer !important;
+    transition: color .2s ease, background-color .2s ease;
+}
+.chuanhu-btn:hover {
+    background-color: rgba(167, 167, 167, 0.25) !important;
+    color: unset !important;
+}
+.chuanhu-btn:active {
+    background-color: rgba(167, 167, 167, 0.5) !important;
+}
+.chuanhu-btn:focus {
+    outline: none;
+}
+.copy-bot-btn {
+    /* top: 18px; */
+    bottom: 0;
+}
+.toggle-md-btn {
+    /* top: 0; */
+    bottom: 20px;
+}
+.copy-code-btn {
+    position: relative;
+    float: right;
+    font-size: 1em;
+    cursor: pointer;
 }
 
 .message-wrap>div img{
@@ -306,93 +417,52 @@ thead th {
     padding: .5em .2em;
 }
 /* 行内代码 */
-code {
+.message :not(pre) code {
     display: inline;
     white-space: break-spaces;
+    font-family: var(--font-mono);
     border-radius: 6px;
     margin: 0 2px 0 2px;
     padding: .2em .4em .1em .4em;
     background-color: rgba(175,184,193,0.2);
 }
 /* 代码块 */
-pre code {
-    display: block;
-    overflow: auto;
-    white-space: pre;
-    background-color: hsla(0, 0%, 0%, 80%)!important;
-    border-radius: 10px;
-    padding: 1.4em 1.2em 0em 1.4em;
-    margin: 0.6em 2em 1.2em 0.5em;
-    color: #FFF;
-    box-shadow: 6px 6px 16px hsla(0, 0%, 0%, 0.2);
+.message pre,
+.message pre[class*=language-] {
+    color: #fff;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: .8em 1em 1em 0em !important;
+    padding: var(--spacing-xl) 1.2em !important;
+    border-radius: var(--radius-lg) !important;
 }
-/* 代码高亮样式 */
-.highlight .hll { background-color: #49483e }
-.highlight .c { color: #75715e } /* Comment */
-.highlight .err { color: #960050; background-color: #1e0010 } /* Error */
-.highlight .k { color: #66d9ef } /* Keyword */
-.highlight .l { color: #ae81ff } /* Literal */
-.highlight .n { color: #f8f8f2 } /* Name */
-.highlight .o { color: #f92672 } /* Operator */
-.highlight .p { color: #f8f8f2 } /* Punctuation */
-.highlight .ch { color: #75715e } /* Comment.Hashbang */
-.highlight .cm { color: #75715e } /* Comment.Multiline */
-.highlight .cp { color: #75715e } /* Comment.Preproc */
-.highlight .cpf { color: #75715e } /* Comment.PreprocFile */
-.highlight .c1 { color: #75715e } /* Comment.Single */
-.highlight .cs { color: #75715e } /* Comment.Special */
-.highlight .gd { color: #f92672 } /* Generic.Deleted */
-.highlight .ge { font-style: italic } /* Generic.Emph */
-.highlight .gi { color: #a6e22e } /* Generic.Inserted */
-.highlight .gs { font-weight: bold } /* Generic.Strong */
-.highlight .gu { color: #75715e } /* Generic.Subheading */
-.highlight .kc { color: #66d9ef } /* Keyword.Constant */
-.highlight .kd { color: #66d9ef } /* Keyword.Declaration */
-.highlight .kn { color: #f92672 } /* Keyword.Namespace */
-.highlight .kp { color: #66d9ef } /* Keyword.Pseudo */
-.highlight .kr { color: #66d9ef } /* Keyword.Reserved */
-.highlight .kt { color: #66d9ef } /* Keyword.Type */
-.highlight .ld { color: #e6db74 } /* Literal.Date */
-.highlight .m { color: #ae81ff } /* Literal.Number */
-.highlight .s { color: #e6db74 } /* Literal.String */
-.highlight .na { color: #a6e22e } /* Name.Attribute */
-.highlight .nb { color: #f8f8f2 } /* Name.Builtin */
-.highlight .nc { color: #a6e22e } /* Name.Class */
-.highlight .no { color: #66d9ef } /* Name.Constant */
-.highlight .nd { color: #a6e22e } /* Name.Decorator */
-.highlight .ni { color: #f8f8f2 } /* Name.Entity */
-.highlight .ne { color: #a6e22e } /* Name.Exception */
-.highlight .nf { color: #a6e22e } /* Name.Function */
-.highlight .nl { color: #f8f8f2 } /* Name.Label */
-.highlight .nn { color: #f8f8f2 } /* Name.Namespace */
-.highlight .nx { color: #a6e22e } /* Name.Other */
-.highlight .py { color: #f8f8f2 } /* Name.Property */
-.highlight .nt { color: #f92672 } /* Name.Tag */
-.highlight .nv { color: #f8f8f2 } /* Name.Variable */
-.highlight .ow { color: #f92672 } /* Operator.Word */
-.highlight .w { color: #f8f8f2 } /* Text.Whitespace */
-.highlight .mb { color: #ae81ff } /* Literal.Number.Bin */
-.highlight .mf { color: #ae81ff } /* Literal.Number.Float */
-.highlight .mh { color: #ae81ff } /* Literal.Number.Hex */
-.highlight .mi { color: #ae81ff } /* Literal.Number.Integer */
-.highlight .mo { color: #ae81ff } /* Literal.Number.Oct */
-.highlight .sa { color: #e6db74 } /* Literal.String.Affix */
-.highlight .sb { color: #e6db74 } /* Literal.String.Backtick */
-.highlight .sc { color: #e6db74 } /* Literal.String.Char */
-.highlight .dl { color: #e6db74 } /* Literal.String.Delimiter */
-.highlight .sd { color: #e6db74 } /* Literal.String.Doc */
-.highlight .s2 { color: #e6db74 } /* Literal.String.Double */
-.highlight .se { color: #ae81ff } /* Literal.String.Escape */
-.highlight .sh { color: #e6db74 } /* Literal.String.Heredoc */
-.highlight .si { color: #e6db74 } /* Literal.String.Interpol */
-.highlight .sx { color: #e6db74 } /* Literal.String.Other */
-.highlight .sr { color: #e6db74 } /* Literal.String.Regex */
-.highlight .s1 { color: #e6db74 } /* Literal.String.Single */
-.highlight .ss { color: #e6db74 } /* Literal.String.Symbol */
-.highlight .bp { color: #f8f8f2 } /* Name.Builtin.Pseudo */
-.highlight .fm { color: #a6e22e } /* Name.Function.Magic */
-.highlight .vc { color: #f8f8f2 } /* Name.Variable.Class */
-.highlight .vg { color: #f8f8f2 } /* Name.Variable.Global */
-.highlight .vi { color: #f8f8f2 } /* Name.Variable.Instance */
-.highlight .vm { color: #f8f8f2 } /* Name.Variable.Magic */
-.highlight .il { color: #ae81ff } /* Literal.Number.Integer.Long */
+.message pre code,
+.message pre code[class*=language-] {
+    color: #fff;
+    padding: 0;
+    margin: 0;
+    background-color: unset;
+    text-shadow: none;
+    font-family: var(--font-mono);
+}
+/* 覆盖 gradio 丑陋的复制按钮样式 */
+pre button[title="copy"] {
+    border-radius: 5px;
+    transition: background-color .2s ease;
+}
+pre button[title="copy"]:hover {
+    background-color: #333232;
+}
+pre button .check {
+    color: #fff !important;
+    background: var(--neutral-950) !important;
+}
+
+/* 覆盖prism.css */
+.language-css .token.string,
+.style .token.string,
+.token.entity,
+.token.operator,
+.token.url {
+    background: none !important;
+}

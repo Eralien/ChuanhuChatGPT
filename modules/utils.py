@@ -16,7 +16,6 @@ import subprocess
 import gradio as gr
 from pypinyin import lazy_pinyin
 import tiktoken
-import mdtex2html
 from markdown import markdown
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
@@ -47,6 +46,9 @@ def set_key(current_model, *args):
 
 def load_chat_history(current_model, *args):
     return current_model.load_chat_history(*args)
+
+def delete_chat_history(current_model, *args):
+    return current_model.delete_chat_history(*args)
 
 def interrupt(current_model, *args):
     return current_model.interrupt(*args)
@@ -116,6 +118,9 @@ def set_single_turn(current_model, *args):
 def handle_file_upload(current_model, *args):
     return current_model.handle_file_upload(*args)
 
+def handle_summarize_index(current_model, *args):
+    return current_model.summarize_index(*args)
+
 def like(current_model, *args):
     return current_model.like(*args)
 
@@ -130,7 +135,7 @@ def count_token(message):
     return length
 
 
-def markdown_to_html_with_syntax_highlight(md_str):
+def markdown_to_html_with_syntax_highlight(md_str): # deprecated
     def replacer(match):
         lang = match.group(1) or "text"
         code = match.group(2)
@@ -152,7 +157,7 @@ def markdown_to_html_with_syntax_highlight(md_str):
     return html_str
 
 
-def normalize_markdown(md_text: str) -> str:
+def normalize_markdown(md_text: str) -> str: # deprecated
     lines = md_text.split("\n")
     normalized_lines = []
     inside_list = False
@@ -176,13 +181,14 @@ def normalize_markdown(md_text: str) -> str:
     return "\n".join(normalized_lines)
 
 
-def convert_mdtext(md_text):
+def convert_mdtext(md_text): # deprecated
     code_block_pattern = re.compile(r"```(.*?)(?:```|$)", re.DOTALL)
     inline_code_pattern = re.compile(r"`(.*?)`", re.DOTALL)
     code_blocks = code_block_pattern.findall(md_text)
     non_code_parts = code_block_pattern.split(md_text)[::2]
 
     result = []
+    raw = f'<div class="raw-message hideM">{html.escape(md_text)}</div>'
     for non_code, code in zip(non_code_parts, code_blocks + [""]):
         if non_code.strip():
             non_code = normalize_markdown(non_code)
@@ -194,18 +200,76 @@ def convert_mdtext(md_text):
             code = markdown_to_html_with_syntax_highlight(code)
             result.append(code)
     result = "".join(result)
-    result += ALREADY_CONVERTED_MARK
-    return result
+    output = f'<div class="md-message">{result}</div>'
+    output += raw
+    output += ALREADY_CONVERTED_MARK
+    return output
+
+def convert_bot_before_marked(chat_message):
+    """
+    注意不能给输出加缩进, 否则会被marked解析成代码块
+    """
+    if '<div class="md-message">' in chat_message:
+        return chat_message
+    else:
+        code_block_pattern = re.compile(r"```(.*?)(?:```|$)", re.DOTALL)
+        code_blocks = code_block_pattern.findall(chat_message)
+        non_code_parts = code_block_pattern.split(chat_message)[::2]
+        result = []
+
+        raw = f'<div class="raw-message hideM">{escape_markdown(chat_message)}</div>'
+        for non_code, code in zip(non_code_parts, code_blocks + [""]):
+            if non_code.strip():
+                result.append(non_code)
+            if code.strip():
+                code = f"\n```{code}\n```"
+                result.append(code)
+        result = "".join(result)
+        md = f'<div class="md-message">{result}\n</div>'
+        return raw + md
+
+def convert_user_before_marked(chat_message):
+    if '<div class="user-message">' in chat_message:
+        return chat_message
+    else:
+        return f'<div class="user-message">{escape_markdown(chat_message)}</div>'
+
+def escape_markdown(text):
+    """
+    Escape Markdown special characters to HTML-safe equivalents.
+    """
+    escape_chars = {
+        ' ': '&nbsp;',
+        '_': '&#95;',
+        '*': '&#42;',
+        '[': '&#91;',
+        ']': '&#93;',
+        '(': '&#40;',
+        ')': '&#41;',
+        '{': '&#123;',
+        '}': '&#125;',
+        '#': '&#35;',
+        '+': '&#43;',
+        '-': '&#45;',
+        '.': '&#46;',
+        '!': '&#33;',
+        '`': '&#96;',
+        '>': '&#62;',
+        '<': '&#60;',
+        '|': '&#124;',
+        ':': '&#58;',
+    }
+    return ''.join(escape_chars.get(c, c) for c in text)
 
 
-def convert_asis(userinput):
+def convert_asis(userinput): # deprecated
     return (
         f'<p style="white-space:pre-wrap;">{html.escape(userinput)}</p>'
         + ALREADY_CONVERTED_MARK
     )
 
 
-def detect_converted_mark(userinput):
+def detect_converted_mark(userinput): # deprecated
     try:
         if userinput.endswith(ALREADY_CONVERTED_MARK):
             return True
@@ -215,7 +279,7 @@ def detect_converted_mark(userinput):
         return True
 
 
-def detect_language(code):
+def detect_language(code): # deprecated
     if code.startswith("\n"):
         first_line = ""
     else:
@@ -250,8 +314,8 @@ def save_file(filename, system, history, chatbot, user_name):
             history_file_path = filename
         else:
             history_file_path = os.path.join(HISTORY_DIR, user_name, filename)
-        with open(history_file_path, "w") as f:
-            json.dump(json_s, f)
+        with open(history_file_path, "w", encoding='utf-8') as f:
+            json.dump(json_s, f, ensure_ascii=False)
     elif filename.endswith(".md"):
         md_s = f"system: \n- {system} \n"
         for data in history:
@@ -456,8 +520,8 @@ def run(command, desc=None, errdesc=None, custom_env=None, live=False):
         result = subprocess.run(command, shell=True, env=os.environ if custom_env is None else custom_env)
         if result.returncode != 0:
             raise RuntimeError(f"""{errdesc or 'Error running command'}.
-Command: {command}
-Error code: {result.returncode}""")
+                Command: {command}
+                Error code: {result.returncode}""")
 
         return ""
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, env=os.environ if custom_env is None else custom_env)
@@ -480,7 +544,7 @@ def versions_html():
         commit_hash = "<none>"
     if commit_hash != "<none>":
         short_commit = commit_hash[0:7]
-        commit_info = f"<a style=\"text-decoration:none\" href=\"https://github.com/GaiZhenbiao/ChuanhuChatGPT/commit/{short_commit}\">{short_commit}</a>"
+        commit_info = f"<a style=\"text-decoration:none;color:inherit\" href=\"https://github.com/GaiZhenbiao/ChuanhuChatGPT/commit/{short_commit}\">{short_commit}</a>"
     else:
         commit_info = "unknown \U0001F615"
     return f"""
@@ -488,8 +552,15 @@ def versions_html():
          • 
         Gradio: {gr.__version__}
          • 
-        Commit: {commit_info}
+        <a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT">ChuanhuChat</a>: {commit_info}
         """
+
+def get_html(filename):
+    path = os.path.join(shared.chuanhu_path, "assets", "html", filename)
+    if os.path.exists(path):
+        with open(path, encoding="utf8") as file:
+            return file.read()
+    return ""
 
 def add_source_numbers(lst, source_name = "Source", use_source = True):
     if use_source:
@@ -557,7 +628,7 @@ def toggle_like_btn_visibility(selected_model_name):
 def new_auto_history_filename(dirname):
     latest_file = get_latest_filepath(dirname)
     if latest_file:
-        with open(os.path.join(dirname, latest_file), 'r') as f:
+        with open(os.path.join(dirname, latest_file), 'r', encoding="utf-8") as f:
             if len(f.read()) == 0:
                 return latest_file
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -580,6 +651,7 @@ def get_latest_filepath(dirname):
 
 def get_history_filepath(username):
     dirname = os.path.join(HISTORY_DIR, username)
+    os.makedirs(dirname, exist_ok=True)
     latest_file = get_latest_filepath(dirname)
     if not latest_file:
         latest_file = new_auto_history_filename(dirname)

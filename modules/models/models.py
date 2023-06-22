@@ -15,17 +15,16 @@ from PIL import Image
 
 from tqdm import tqdm
 import colorama
-from duckduckgo_search import ddg
 import asyncio
 import aiohttp
 from enum import Enum
 import uuid
 
 from ..presets import *
-from ..llama_func import *
+from ..index_func import *
 from ..utils import *
 from .. import shared
-from ..config import retrieve_proxy
+from ..config import retrieve_proxy, usage_limit
 from modules import config
 from .base_model import BaseLLMModel, ModelType
 
@@ -90,8 +89,16 @@ class OpenAIClient(BaseLLMModel):
             except Exception as e:
                 logging.error(f"获取API使用情况失败:" + str(e))
                 return i18n("**获取API使用情况失败**")
-            rounded_usage = "{:.5f}".format(usage_data["total_usage"] / 100)
-            return i18n("**本月使用金额** ") + f"\u3000 ${rounded_usage}"
+            # rounded_usage = "{:.5f}".format(usage_data["total_usage"] / 100)
+            rounded_usage = round(usage_data["total_usage"] / 100, 5)
+            usage_percent = round(usage_data["total_usage"] / usage_limit, 2)
+            # return i18n("**本月使用金额** ") + f"\u3000 ${rounded_usage}"
+            return get_html("billing_info.html").format(
+                    label = i18n("本月使用金额"),
+                    usage_percent = usage_percent,
+                    rounded_usage = rounded_usage,
+                    usage_limit = usage_limit
+                )
         except requests.exceptions.ConnectTimeout:
             status_text = (
                 STANDARD_ERROR_MSG + CONNECTION_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
@@ -328,7 +335,7 @@ class LLaMA_Client(BaseLLMModel):
             pipeline_args = InferencerArguments(
                 local_rank=0, random_seed=1, deepspeed='configs/ds_config_chatbot.json', mixed_precision='bf16')
 
-            with open(pipeline_args.deepspeed, "r") as f:
+            with open(pipeline_args.deepspeed, "r", encoding="utf-8") as f:
                 ds_config = json.load(f)
             LLAMA_MODEL = AutoModel.get_model(
                 model_args,
@@ -483,7 +490,7 @@ class XMChat(BaseLLMModel):
         limited_context = False
         return limited_context, fake_inputs, display_append, real_inputs, chatbot
 
-    def handle_file_upload(self, files, chatbot):
+    def handle_file_upload(self, files, chatbot, language):
         """if the model accepts multi modal input, implement this function"""
         if files:
             for file in files:
@@ -546,6 +553,7 @@ def get_model(
         config.local_embedding = True
     # del current_model.model
     model = None
+    chatbot = gr.Chatbot.update(label=model_name)
     try:
         if model_type == ModelType.OpenAI:
             logging.info(f"正在加载OpenAI模型: {model_name}")
@@ -588,6 +596,17 @@ def get_model(
         elif model_type == ModelType.MOSS:
             from .MOSS import MOSS_Client
             model = MOSS_Client(model_name, user_name=user_name)
+        elif model_type == ModelType.YuanAI:
+            from .inspurai import Yuan_Client
+            model = Yuan_Client(model_name, api_key=access_key, user_name=user_name, system_prompt=system_prompt)
+        elif model_type == ModelType.Minimax:
+            from .minimax import MiniMax_Client
+            if os.environ.get("MINIMAX_API_KEY") != "":
+                access_key = os.environ.get("MINIMAX_API_KEY")
+            model = MiniMax_Client(model_name, api_key=access_key, user_name=user_name, system_prompt=system_prompt)
+        elif model_type == ModelType.ChuanhuAgent:
+            from .ChuanhuAgent import ChuanhuAgent_Client
+            model = ChuanhuAgent_Client(model_name, access_key, user_name=user_name)
         elif model_type == ModelType.Unknown:
             raise ValueError(f"未知模型: {model_name}")
         logging.info(msg)
@@ -595,13 +614,13 @@ def get_model(
         logging.error(e)
         msg = f"{STANDARD_ERROR_MSG}: {e}"
     if dont_change_lora_selector:
-        return model, msg
+        return model, msg, chatbot
     else:
-        return model, msg, gr.Dropdown.update(choices=lora_choices, visible=lora_selector_visibility)
+        return model, msg, chatbot, gr.Dropdown.update(choices=lora_choices, visible=lora_selector_visibility)
 
 
 if __name__ == "__main__":
-    with open("config.json", "r") as f:
+    with open("config.json", "r", encoding="utf-8") as f:
         openai_api_key = cjson.load(f)["openai_api_key"]
     # set logging level to debug
     logging.basicConfig(level=logging.DEBUG)
