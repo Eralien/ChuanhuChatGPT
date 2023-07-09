@@ -15,19 +15,23 @@ var appTitleDiv = null;
 var chatbot = null;
 var chatbotWrap = null;
 var apSwitch = null;
-var empty_botton = null;
 var messageBotDivs = null;
 var loginUserForm = null;
 var logginUser = null;
+var updateToast = null;
+var sendBtn = null;
 
 var userLogged = false;
 var usernameGotten = false;
 var historyLoaded = false;
+var updateInfoGotten = false;
+var isLatestVersion = localStorage.getItem('isLatestVersion') || false;
 
 var ga = document.getElementsByTagName("gradio-app");
 var targetNode = ga[0];
 var isInIframe = (window.self !== window.top);
 var language = navigator.language.slice(0,2);
+var currentTime = new Date().getTime();
 
 var forView_i18n = {
     'zh': "仅供查看",
@@ -50,6 +54,12 @@ var deleteConfirm_i18n_suff = {
 var deleteConfirm_msg_pref = "Are you sure you want to delete ";
 var deleteConfirm_msg_suff = " ?";
 
+var usingLatest_i18n = {
+    'zh': "您使用的就是最新版！",
+    'en': "You are using the latest version!",
+    'ja': "最新バージョンを使用しています！",
+};
+
 // gradio 页面加载好了么??? 我能动你的元素了么??
 function gradioLoaded(mutations) {
     for (var i = 0; i < mutations.length; i++) {
@@ -62,7 +72,8 @@ function gradioLoaded(mutations) {
             chatbot = document.querySelector('#chuanhu_chatbot');
             chatbotWrap = document.querySelector('#chuanhu_chatbot > .wrap');
             apSwitch = document.querySelector('.apSwitch input[type="checkbox"]');
-            empty_botton = document.getElementById("empty_btn")
+            updateToast = document.querySelector("#toast-update");
+            sendBtn = document.getElementById("submit_btn");
 
             if (loginUserForm) {
                 localStorage.setItem("userLogged", true);
@@ -90,8 +101,12 @@ function gradioLoaded(mutations) {
                 }
                 setChatbotScroll();
             }
-            if (empty_botton) {
-                emptyHistory();
+            if (updateToast) {
+                const lastCheckTime = localStorage.getItem('lastCheckTime') || 0;
+                const longTimeNoCheck = currentTime - lastCheckTime > 3 * 24 * 60 * 60 * 1000;
+                if (longTimeNoCheck && !updateInfoGotten && !isLatestVersion || isLatestVersion && !updateInfoGotten) {
+                    updateLatestVersion();
+                }
             }
         }
     }
@@ -111,10 +126,21 @@ function webLocale() {
     }
 }
 
+function showConfirmationDialog(a, file, c) {
+    if (file != "") {
+        var result = confirm(deleteConfirm_msg_pref + file + deleteConfirm_msg_suff);
+        if (result) {
+            return [a, file, c];
+        }
+    }
+    return [a, "CANCELED", c];
+}
+
 function selectHistory() {
     user_input_ta = user_input_tb.querySelector("textarea");
     if (user_input_ta) {
         observer.disconnect(); // 停止监听
+        disableSendBtn();
         // 在 textarea 上监听 keydown 事件
         user_input_ta.addEventListener("keydown", function (event) {
             var value = user_input_ta.value.trim();
@@ -159,6 +185,13 @@ function selectHistory() {
     }
 }
 
+function disableSendBtn() {
+    sendBtn.disabled = user_input_ta.value.trim() === '';
+    user_input_ta.addEventListener('input', () => {
+        sendBtn.disabled = user_input_ta.value.trim() === '';
+    });
+}
+
 var username = null;
 function getUserInfo() {
     if (usernameGotten) {
@@ -197,8 +230,6 @@ function toggleUserInfoVisibility(shouldHide) {
     }
 }
 function showOrHideUserInfo() {
-    var sendBtn = document.getElementById("submit_btn");
-
     // Bind mouse/touch events to show/hide user info
     appTitleDiv.addEventListener("mouseenter", function () {
         toggleUserInfoVisibility(false);
@@ -350,19 +381,38 @@ function addChuanhuButton(botElement) {
     copyButton.classList.add('copy-bot-btn');
     copyButton.setAttribute('aria-label', 'Copy');
     copyButton.innerHTML = copyIcon;
-    copyButton.addEventListener('click', () => {
+    copyButton.addEventListener('click', async () => {
         const textToCopy = rawMessage.innerText;
-        navigator.clipboard
-            .writeText(textToCopy)
-            .then(() => {
+
+        try {
+            if ("clipboard" in navigator) {
+                await navigator.clipboard.writeText(textToCopy);
                 copyButton.innerHTML = copiedIcon;
                 setTimeout(() => {
                     copyButton.innerHTML = copyIcon;
                 }, 1500);
-            })
-            .catch(() => {
-                console.error("copy failed");
-            });
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+
+                document.body.appendChild(textArea);
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                    copyButton.innerHTML = copiedIcon;
+                    setTimeout(() => {
+                        copyButton.innerHTML = copyIcon;
+                    }, 1500);
+                } catch (error) {
+                    console.error("Copy failed: ", error);
+                }
+
+                document.body.removeChild(textArea);
+            }
+        } catch (error) {
+            console.error("Copy failed: ", error);
+        }
     });
     botElement.appendChild(copyButton);
 
@@ -409,6 +459,7 @@ var mObserver = new MutationObserver(function (mutationsList) {
             for (var node of mmutation.addedNodes) {
                 if (node.nodeType === 1 && node.classList.contains('message') && node.getAttribute('data-testid') === 'bot') {
                     saveHistoryHtml();
+                    disableSendBtn();
                     document.querySelectorAll('#chuanhu_chatbot>.wrap>.message-wrap .message.bot').forEach(addChuanhuButton);
                 }
                 if (node.tagName === 'INPUT' && node.getAttribute('type') === 'range') {
@@ -418,6 +469,7 @@ var mObserver = new MutationObserver(function (mutationsList) {
             for (var node of mmutation.removedNodes) {
                 if (node.nodeType === 1 && node.classList.contains('message') && node.getAttribute('data-testid') === 'bot') {
                     saveHistoryHtml();
+                    disableSendBtn();
                     document.querySelectorAll('#chuanhu_chatbot>.wrap>.message-wrap .message.bot').forEach(addChuanhuButton);
                 }
             }
@@ -430,6 +482,7 @@ var mObserver = new MutationObserver(function (mutationsList) {
                     isThrottled = false;
                     document.querySelectorAll('#chuanhu_chatbot>.wrap>.message-wrap .message.bot').forEach(addChuanhuButton);
                     saveHistoryHtml();
+                    disableSendBtn();
                 }, 500);
             }
         }
@@ -490,12 +543,98 @@ function clearHistoryHtml() {
         console.log("History Cleared");
     }
 }
-function emptyHistory() {
-    empty_botton.addEventListener("click", function () {
-        clearHistoryHtml();
-    });
-}
 
+var showingUpdateInfo = false;
+async function getLatestRelease() {
+    try {
+        const response = await fetch('https://api.github.com/repos/gaizhenbiao/chuanhuchatgpt/releases/latest');
+        if (!response.ok) {
+            console.log(`Error: ${response.status} - ${response.statusText}`);
+            updateInfoGotten = true;
+            return null;
+          }
+        const data = await response.json();
+        updateInfoGotten = true;
+        return data;
+    } catch (error) {
+        console.log(`Error: ${error}`);
+        updateInfoGotten = true;
+        return null;
+    }
+}
+async function updateLatestVersion() {
+    const currentVersionElement = document.getElementById('current-version');
+    const latestVersionElement = document.getElementById('latest-version-title');
+    const releaseNoteElement = document.getElementById('release-note-content');
+    const currentVersion = currentVersionElement.textContent;
+    const versionTime = document.getElementById('version-time').innerText;
+    const localVersionTime = versionTime !== "unknown" ? (new Date(versionTime)).getTime() : 0;
+    updateInfoGotten = true; //无论成功与否都只执行一次，否则容易api超限...
+    try {
+        const data = await getLatestRelease();
+        const releaseNote = data.body;
+        if (releaseNote) {
+            releaseNoteElement.innerHTML = marked.parse(releaseNote);
+        }
+        const latestVersion = data.tag_name;
+        const latestVersionTime = (new Date(data.created_at)).getTime();
+        if (latestVersionTime) {
+            if (localVersionTime < latestVersionTime) {
+                latestVersionElement.textContent = latestVersion;
+                console.log(`New version ${latestVersion} found!`);
+                if (!isInIframe) {openUpdateToast();}      
+            } else {
+                noUpdate();
+            }
+            currentTime = new Date().getTime();
+            localStorage.setItem('lastCheckTime', currentTime);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+function getUpdate() {
+    window.open('https://github.com/gaizhenbiao/chuanhuchatgpt/releases/latest', '_blank');
+    closeUpdateToast();
+}
+function cancelUpdate() {
+    closeUpdateToast();
+}
+function openUpdateToast() {
+    showingUpdateInfo = true;
+    setUpdateWindowHeight();
+}
+function closeUpdateToast() {
+    updateToast.style.setProperty('top', '-500px');
+    showingUpdateInfo = false;
+}
+function manualCheckUpdate() {
+    openUpdateToast();
+    updateLatestVersion();
+    currentTime = new Date().getTime();
+    localStorage.setItem('lastCheckTime', currentTime);
+}
+function noUpdate() {
+    localStorage.setItem('isLatestVersion', 'true');
+    isLatestVersion = true;
+    const versionInfoElement = document.getElementById('version-info-title');
+    const releaseNoteWrap = document.getElementById('release-note-wrap');
+    const gotoUpdateBtn = document.getElementById('goto-update-btn');
+    const closeUpdateBtn = document.getElementById('close-update-btn');
+
+    versionInfoElement.textContent = usingLatest_i18n.hasOwnProperty(language) ? usingLatest_i18n[language] : usingLatest_i18n['en'];
+    releaseNoteWrap.style.setProperty('display', 'none');
+    gotoUpdateBtn.classList.add('hideK');
+    closeUpdateBtn.classList.remove('hideK');
+}
+function setUpdateWindowHeight() {
+    if (!showingUpdateInfo) {return;}
+    const scrollPosition = window.scrollY;
+    // const originalTop = updateToast.style.getPropertyValue('top');
+    const resultTop = scrollPosition - 20 + 'px';
+    updateToast.style.setProperty('top', resultTop);
+}
+    
 // 监视页面内部 DOM 变动
 var observer = new MutationObserver(function (mutations) {
     gradioLoaded(mutations);
@@ -508,7 +647,7 @@ window.addEventListener("DOMContentLoaded", function () {
     historyLoaded = false;
 });
 window.addEventListener('resize', setChatbotHeight);
-window.addEventListener('scroll', setChatbotHeight);
+window.addEventListener('scroll', function(){setChatbotHeight();setUpdateWindowHeight();});
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", adjustDarkMode);
 
 // button svg code
