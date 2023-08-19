@@ -6,7 +6,7 @@
 <h1 align="center">川虎 Chat 🐯 Chuanhu Chat</h1>
 <div align="center">
   <a href="https://github.com/GaiZhenBiao/ChuanhuChatGPT">
-    <img src="https://user-images.githubusercontent.com/70903329/227087087-93b37d64-7dc3-4738-a518-c1cf05591c8a.png" alt="Logo" height="156">
+    <img src="https://github.com/GaiZhenbiao/ChuanhuChatGPT/assets/70903329/aca3a7ec-4f1d-4667-890c-a6f47bf08f63" alt="Logo" height="156">
   </a>
 
 <p align="center">
@@ -45,14 +45,18 @@
 </div>
 
 ## サポートされている大規模言語モデル
+
 **APIを通じてアクセス可能な大規模言語モデル**：
+
 - [ChatGPT](https://chat.openai.com) ([GPT-4](https://openai.com/product/gpt-4))
+- [Google PaLM](https://developers.generativeai.google/products/palm)
 - [Inspur Yuan 1.0](https://air.inspur.com/home)
 - [MiniMax](https://api.minimax.chat/)
 - [XMChat](https://github.com/MILVLG/xmchat)
 
 **ローカルに展開された大規模言語モデル**：
-- [ChatGLM](https://github.com/THUDM/ChatGLM-6B)
+
+- [ChatGLM](https://github.com/THUDM/ChatGLM-6B) ([ChatGLM2](https://github.com/THUDM/ChatGLM2-6B))
 - [LLaMA](https://github.com/facebookresearch/llama)
 - [StableLM](https://github.com/Stability-AI/StableLM)
 - [MOSS](https://github.com/OpenLMLab/MOSS)
